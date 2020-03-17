@@ -1,0 +1,801 @@
+#include "rbTree.h"
+#include <stdio.h>
+#include <algorithm>
+#include <queue>
+#include <iostream>
+#include <string>
+
+/* 构造函数 */
+template<class T>
+RBTree<T>::RBTree()
+: root( NULL ) {}
+
+/* 析构函数 */
+template<class T>
+RBTree<T>::~RBTree()
+{
+    clear();
+}
+
+/* 清空操作 */
+template<class T>
+void RBTree<T>::clear()
+{
+    clear( root );
+    root = NULL;
+}
+
+/*
+删除所有节点
+template<class T>
+void RBTree<T>::clear( RBTNode<T> *node )
+{
+    if ( node == NULL )
+    {
+        return ;
+    }
+    if ( node->leftChild != NULL )
+    {
+        clear( node->leftChild );
+    }
+    if ( node->rightChild != NULL )
+    {
+        clear( node->rightChild );
+    }
+    delete node;
+}
+*/
+
+/* 删除所有节点 */
+template<class T>
+void RBTree<T>::clear( RBTNode<T> *node )
+{
+    if ( node == NULL )
+    {
+        return ;
+    }
+    if ( node->leftChild != NULL )
+    {
+        clear( node->leftChild );
+    }
+    if ( node->rightChild != NULL )
+    {
+        clear( node->rightChild );
+    }
+    delete node;
+}
+
+/* 左旋操作示例
+ * 对红黑树的节点(x)进行左旋转
+ *
+ *      px                              px
+ *     /                               /
+ *    x                               y
+ *   /  \      --(左旋)-->           / \
+ *  lx   y                          x  ry
+ *     /   \                       /  \
+ *    ly   ry                     lx  ly
+ *
+ * 其中需要变化的值：
+ * px->Child = y
+ * x->father = y
+ * x->rightChild = ly
+ * y->father = px
+ * y->leftChild = x
+ * ly->father = x
+ */
+template<class T>
+void RBTree<T>::leftRotate( RBTNode<T> *node )
+{
+    RBTNode<T> *x = node;
+    RBTNode<T> *y = x->rightChild;
+
+    // 修改x->rightChild = ly
+    x->rightChild = y->leftChild;
+    
+    // 修改ly->father = x, 注意ly可能为空
+    if ( y->leftChild != NULL)
+    {
+        y->leftChild->father = x;
+    }
+    
+    // 修改y->father = px
+    y->father = x->father;
+
+    // 修改px-Child = y，此时需要考虑px为NULL以及左右孩子的区别
+    if ( x->father == NULL )
+    {
+        root = y;   // 此时要更新root
+    }
+    else 
+    {
+        if ( x->father->leftChild == x )
+        {
+            x->father->leftChild = y;
+        }
+        else
+        {
+            x->father->rightChild = y;
+        }
+    }
+
+    // 修改y->leftChild = x
+    y->leftChild = x;
+    
+    // 修改x->father = y
+    x->father = y;
+}
+
+/* 右旋，左旋的逆操作 */
+template<class T>
+void RBTree<T>::rightRotate( RBTNode<T>* node )
+{
+    RBTNode<T> *y = node;
+    RBTNode<T> *x = y->leftChild;
+
+    y->leftChild = x->rightChild;
+    
+    if ( x->rightChild != NULL )
+    {
+        x->rightChild->father = y;
+    }
+
+    x->father = y->father;
+
+    if ( y->father == NULL )
+    {
+        root = x;
+    }
+    else
+    {
+        if ( y->father->leftChild == y )
+        {
+            y->father->leftChild = x;
+        }
+        else
+        {
+            y->father->rightChild = x;
+        }
+    }
+
+    x->rightChild = y;
+
+    y->father = x;
+}
+
+/* 插入 */
+template<class T>
+void RBTree<T>::insert( T value ) {
+    RBTNode<T> *node = NULL;
+
+    if ( ( node = new RBTNode<T>( BLACK, value, NULL, NULL, NULL ) ) == NULL )
+    {
+        return ;
+    }
+
+    insert( node );
+}
+
+/* 插入具体实现
+ * 插入的的节点默认为红色，且先按照普通的二叉排序树插入
+ * 新生成的树可能不满足红黑树特性，需要进行修正
+ * 可能会违背的红黑树特性是特性4：如果一个节点是红色的，那么他的子节点必须是黑色的
+ */
+template<class T>
+void RBTree<T>::insert( RBTNode<T>* node )
+{
+    RBTNode<T> *y = NULL;
+    RBTNode<T> *x = root;
+
+    // 当做二叉排序树正常插入
+    while ( x != NULL )
+    {
+        y = x;
+        if ( node->value < x->value )
+        {
+            x = x->leftChild;
+        }
+        else
+        {
+            x = x->rightChild;
+        }
+    }
+
+    node->father = y;
+    if ( y != NULL )
+    {
+        if ( node->value < y->value)
+        {
+            y->leftChild = node;
+        }
+        else
+        {
+            y->rightChild = node;
+        }
+    }
+    else
+    {
+        root = node;
+    }
+
+    node->color = RED;
+
+    insertFix( node );
+}
+
+/* 插入修正函数，用于修正树使满足红黑树特性
+ * 需要进行操作则说明违反了特性4，则当前节点的父节点为红色
+ * 共有3种操作1.变颜色，2.左旋，3.右旋
+ * 进行何种操作取决于父节点的兄弟节点（叔节点）颜色以及当前节点node、父亲节点fa以及祖父节点gfa的关系
+ * 如果叔节点为红，则只变颜色
+ * 叔节点为黑，则需要旋转
+ * gfa,fa和node的关系共有4种：LL,LR,RL,RR
+ * 旋转的方向根据node与fa的关系（即第二个参数），如果是左子树(L)右旋，否则(R)左旋
+ * 旋转的对象根据node,fa和gfa的关系，如果为RL或者LR旋转fa，如果为RR或者LL旋转gfa
+ */
+template<class T>
+void RBTree<T>::insertFix( RBTNode<T>* node )
+{
+    if ( node == NULL )
+    {
+        return ;
+    }
+
+    // fa--->父亲, gfa--->祖父, un--->叔叔
+    RBTNode<T> *fa, *gfa, *un;
+
+    // 如果父节点存在，且为红色
+    while ( ( ( fa = node->father ) != NULL ) && ( fa->color == RED) )
+    {
+        gfa = fa->father;
+
+        // 父亲节点是祖父节点的左孩子，所以只能出现LL和LR情况
+        if ( fa == gfa->leftChild )
+        {
+            un = gfa->rightChild;
+            // 叔节点是红色的
+            if ( un != NULL && un->color == RED )
+            {
+                fa->color = BLACK;
+                un->color = BLACK;
+                gfa->color = RED;
+                node = gfa;
+                continue;
+            }
+            else
+            {
+                // LR型，左旋父节点，旋转完后会变成LL型
+                if ( fa->rightChild == node )
+                {
+                    leftRotate( fa );
+                    std::swap( fa, node );
+                }
+
+                // LL型，右旋祖父节点
+                fa->color = BLACK;
+                gfa->color = RED;
+                rightRotate( gfa );
+            }
+        }
+        // 父亲节点是祖父节点的右孩子，所以只能出现RL和RR情况
+        else
+        {
+            un = gfa->leftChild;
+            // 叔节点是红色的
+            if ( un != NULL && un->color == RED )
+            {
+                fa->color = BLACK;
+                un->color = BLACK;
+                gfa->color = RED;
+                node = gfa;
+                continue;
+            }
+            else
+            {
+                // RL型，右旋父节点，旋转完后会变成RR型
+                if ( fa->leftChild == node )
+                {
+                    rightRotate( fa );
+                    std::swap( fa, node );
+                }
+
+                // RR型，左旋祖父节点
+                fa->color = BLACK;
+                gfa->color = RED;
+                leftRotate( gfa );
+            }
+        }
+    }
+
+    root->color = BLACK;
+}
+
+/* 删除节点 */
+template<class T>
+void RBTree<T>::erase( T &key )
+{
+    RBTNode<T>* node = find( key );
+    if ( node != NULL )
+    {
+        erase( node );
+    }
+    else
+    {
+        std::cout << "Can't find node" << std::endl;
+    }
+}
+
+/* 删除具体实现
+ * 和普通的二叉搜索树类似，通过转换都变为情况1，其中只有情况1.2需要修正
+ * 1. 无子节点时，删除节点可能为红色或者黑色
+ *   1.1 红色，直接删除
+ *   1.2 黑色，需要修正
+ * 2. 只有一个子节点，当前节点必为黑色，交换当前节点和子节点，删除子节点，此时转换成情况1
+ * 3. 两个子节点，将当前节点与后继节点交换，变为删除后继节点。
+ *   3.1 后继节点是叶节点，变为情况1
+ *   3.2 有一个子节点，变成情况2
+ */
+template<class T>
+void RBTree<T>::erase( RBTNode<T>* node )
+{
+    if ( node == NULL )
+    {
+        return ;
+    }
+
+    RBTNode<T> *child, *father;
+    RBTColor color;
+
+    // 情况1
+    if ( node->leftChild == NULL && node->rightChild == NULL )
+    {
+        // 情况1.2
+        if ( node->color == BLACK )
+        {
+            if ( node == root )
+            {
+                eraseNode( node );
+                return ;
+            }
+            eraseFix( node );
+        }
+    }
+    // 情况2
+    else if ( node->leftChild == NULL || node->rightChild == NULL )
+    {
+        child = node->leftChild ? node->leftChild : node->rightChild;
+
+        std::swap( node->value, child->value );
+        
+        erase( child );
+        return ;
+    }
+    // 情况3，有两个孩子
+    else
+    {
+        // 待删节点的后继节点，用它来取代待删节点
+        RBTNode<T> *replace = node;
+
+        // 求后继节点，后继节点是右孩子的最左下角的孩子
+        replace = replace->rightChild;
+        while ( replace->leftChild != NULL )
+        {
+            replace = replace->leftChild;
+        }
+
+        std::swap( node->value, replace->value );
+        
+        erase( replace );
+        return ;
+    }
+    eraseNode( node );
+}
+
+/* 删除修正
+ *
+ */
+template<class T>
+void RBTree<T>::eraseFix( RBTNode<T>* node )
+{
+    if ( node == NULL || node == root )
+    {
+        return ;
+    }
+
+    RBTNode<T> *brother, *father;
+    father = node->father;
+    
+    while ( ( node == NULL || node->color == BLACK ) && node != root )
+    {
+        // 当前节点是左孩子
+        if ( node = father->leftChild )
+        {
+            brother = father->rightChild;
+
+            // 1. 兄弟是红色的
+            if ( brother != NULL && brother->color == RED )
+            {
+                brother->color = BLACK;
+                father->color = RED;
+                leftRotate( father );
+                brother = father->rightChild;
+            }
+            if ( ( brother->leftChild == NULL || brother->leftChild->color == BLACK ) &&
+                ( brother->rightChild == NULL || brother->rightChild->color == BLACK) )
+            {
+                brother->color = RED;
+                node = father;
+                father = node->father;
+            }
+            else
+            {
+                if ( brother->rightChild == NULL || brother->rightChild->color == BLACK )
+                {
+                    if ( brother->leftChild != NULL )
+                    {
+                        brother->leftChild->color = BLACK;
+                    }
+                    brother->color = RED;
+                    rightRotate( brother );
+                    brother = father->rightChild;
+                }
+
+                brother->color = father->color;
+                father->color = BLACK;
+                if ( brother->rightChild )
+                {
+                    brother->rightChild->color = BLACK;
+                }
+                leftRotate( father );
+                node = root;
+                break;
+            }
+        }
+        else
+        {
+            brother = father->leftChild;
+
+            // 1. 兄弟是红色的
+            if ( brother != NULL && brother->color == RED )
+            {
+                brother->color = BLACK;
+                father->color = RED;
+                rightRotate( father );
+                brother = father->leftChild;
+            }
+            if ( ( brother->leftChild == NULL || brother->leftChild->color == BLACK ) &&
+                ( brother->rightChild == NULL || brother->rightChild->color == BLACK) )
+            {
+                brother->color = RED;
+                node = father;
+                father = node->father;
+            }
+            else
+            {
+                if ( brother->leftChild == NULL || brother->leftChild->color == BLACK )
+                {
+                    if ( brother->rightChild != NULL )
+                    {
+                        brother->rightChild->color = BLACK;
+                    }
+                    brother->color = RED;
+                    leftRotate( brother );
+                    brother = father->leftChild;
+                }
+
+                brother->color = father->color;
+                father->color = BLACK;
+                if ( brother->leftChild )
+                {
+                    brother->leftChild->color = BLACK;
+                }
+                rightRotate( father );
+                node = root;
+                break;
+            }
+        }
+    }
+    if ( node )
+        node->color = BLACK;
+}
+
+template<class T>
+void RBTree<T>::eraseNode( RBTNode<T> *node )
+{
+    if ( node == root )
+    {
+        root = NULL;
+    }
+    else
+    {
+        if ( node->father->leftChild == node )
+        {
+            node->father->leftChild = NULL;
+        }
+        else
+        {
+            node->father->rightChild = NULL;
+        }
+    }
+
+    delete node;
+}
+
+/* 查询函数 */
+template<class T>
+RBTNode<T>* RBTree<T>::find( T &key )
+{
+    return find( root, key );
+}
+
+template<class T>
+RBTNode<T>* RBTree<T>::find( RBTNode<T> *node, T &key )
+{
+    if ( node == NULL || node->value == key)
+    {
+        return node;
+    }
+    if ( key < node->value )
+    {
+        return find( node->leftChild, key );
+    }
+    else
+    {
+        return find( node->rightChild, key );
+    }   
+}
+
+template<class T>
+void RBTree<T>::draw()
+{
+    if ( root == NULL )
+    {
+        std::cout << "NULL" << std::endl;
+        return ;
+    }
+
+    NLPair<T> Now( NULL, 0 ), Next( NULL, 0 );
+    std::queue<NLPair<T>> Que;
+    int layer = 0;
+
+    Que.push( NLPair<T>( root, layer ) );
+    while( !Que.empty() )
+    {
+        Now = Que.front();
+        Que.pop();
+        if ( Now.node == NULL )
+        {
+            continue;
+        }
+        if ( Now.layer != layer )
+        {
+            layer = Now.layer;
+            std::cout << std::endl;
+        }
+        std::cout << Now.node->value << "(";
+        if ( Now.node->father != NULL )
+        {
+            std::cout << Now.node->father->value << " ";
+        }
+        std::cout << (Now.node->color == RED ? "RED" : "BLACK") << ")" << "\t";
+        Next = NLPair<T>( Now.node->leftChild, Now.layer + 1 );
+        Que.push( Next );
+        Next = NLPair<T>( Now.node->rightChild, Now.layer + 1 );
+        Que.push( Next );
+    }
+    std::cout << std::endl;
+}
+
+/* 判断是不是二叉搜索树，判断红黑树的时候用 */
+template<class T>
+bool RBTree<T>::isBST( RBTNode<T> *node )
+{
+    if ( node == NULL )
+    {
+        return true;
+    }
+
+    bool flagL = true, flagR = true;
+    if ( node->leftChild != NULL )
+    {
+        if ( node->leftChild->value >= node->value )
+        {
+            flagL = false;
+        }
+    }
+
+    if ( node->rightChild != NULL )
+    {
+        if ( node->value >= node->rightChild->value )
+        {
+            flagR = false;
+        }
+    }
+
+    if ( flagL == false || flagR == false )
+    {
+        return false;
+    }
+
+    if ( isBST( node->leftChild ) && isBST( node->rightChild ) )
+    {
+        return true;
+    }
+
+    return false;
+}
+
+/* 判断是不是红黑树，测试用 */
+template<class T>
+bool RBTree<T>::isRBT()
+{
+    if ( root == NULL )
+    {
+        return true;
+    }
+
+    if ( !isBST( root ) )
+    {
+        std::cout << "Not a BST!" << std::endl;
+        return false;
+    }
+
+    if ( root->color == RED )
+    {
+        std::cout << "Root is red!" << std::endl;
+        return false;
+    }
+
+    if ( hasTwoRed( root ) )
+    {
+        return false;
+    }
+
+    if ( !hasSameBlack( root ) )
+    {
+        return false;
+    }
+
+    return true;
+}
+
+/* 判断是否有两个连续的红色节点 */
+template<class T>
+bool RBTree<T>::hasTwoRed( RBTNode<T>* node )
+{
+    if ( node == NULL )
+    {
+        return false;
+    }
+
+    if ( node != root )
+    {
+        if ( node->father->color == RED && node->color == RED )
+        {
+            std::cout << "Has tow red node!" << std::endl;
+            std::cout << "node value = " << node->value << std::endl;
+            return true;
+        }
+    }
+
+    if ( hasTwoRed( node->leftChild ) || hasTwoRed( node->rightChild ) )
+    {
+        return true;
+    }
+
+    return false;
+}
+
+/* 判断每个节点的所有路径上的黑色节点个数是否相等 */
+template<class T>
+bool RBTree<T>::hasSameBlack( RBTNode<T>* node )
+{
+    if ( node == NULL )
+    {
+        return true;
+    }
+
+    node->blackNum = -1;
+
+    if ( node->leftChild == NULL && node->rightChild == NULL) 
+    {
+        calBlackNum( node, 0 );
+        return true;
+    }
+
+    if ( node->leftChild )
+    {
+        if ( !hasSameBlack( node->leftChild ) )
+        {
+            return false;
+        }
+    }
+
+    if ( node->rightChild )
+    {
+        if ( !hasSameBlack( node->rightChild ) )
+        {
+            return false;
+        }
+    }
+
+    if ( node->blackNum == -2 )
+    {
+        std::cout << "Don't has same black node!" << std::endl;
+        std::cout << "node value = " << node->value << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+/* 辅助函数，用于计数路径上黑色节点个数 */
+template<class T>
+void RBTree<T>::calBlackNum( RBTNode<T>* node, int blackNum )
+{
+    if ( node == NULL )
+    {
+        return ;
+    }
+
+    if ( node->color == BLACK )
+    {
+        if ( node->blackNum == -1 )
+        {
+            node->blackNum = ++blackNum;
+        }
+        else if ( node->blackNum != -2 )
+        {
+            if ( node->blackNum != ++blackNum )
+            {
+                node->blackNum = -2;
+            }
+        }
+    }
+
+    if ( node->father != NULL )
+    {
+        calBlackNum( node->father, blackNum );
+    }
+}
+
+/* 主函数，用于测试 */
+int main( int argc, char* argv[] )
+{
+    RBTree<int> tree;
+    std::string option;
+    for (int i=1; i<=10000; i++)
+    {
+        tree.insert( i );
+    }
+    for (int i=1; i<=10000; i++)
+    {
+        tree.erase( i );
+    }
+    while( true )
+    {
+        std::cout << "> ";
+        std::cin >> option;
+        if ( option == "insert" )
+        {
+            int val;
+            std::cin >> val;
+            tree.insert( val );
+            std::cout << "finish insert" << std::endl;
+            tree.isRBT();
+        }
+        else if ( option == "erase" )
+        {
+            int val;
+            std::cin >> val;
+            tree.erase( val );
+            std::cout << "finish erase" << std::endl;
+            tree.isRBT();
+        }
+        else if ( option == "draw" )
+        {
+            tree.draw();
+        }
+    }
+    return 0;
+}
