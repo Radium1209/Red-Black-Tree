@@ -7,6 +7,7 @@ using namespace std;
 
 int main( int argc, char* argv[] )
 {
+    cout << "set test" << endl;
     mySet<int> s;
     s.insert(1);
     cout << (s.find(1))->key << endl;
@@ -17,15 +18,18 @@ int main( int argc, char* argv[] )
     s.erase(23);
     cout << (s.end())->key << endl;
 
+    cout << endl << "map test" << endl;
     myMap<int, int> m;
     m.insert(1, 100);
-    m.insert(2, 32);
+    m[5] = 132;
     m.insert(3, 11);
     m.insert(11, 44);
-    cout << m.end()->value << endl;
-    m.erase(2);
+    cout << "m[5]=" << m[5] << endl;
+    cout << "m[3]=" << m[3] << endl;
+    m.erase(5);
     m.erase(100);
 
+    cout << endl << "rbTree test" << endl;
     RBTree<int, int> tree;
     string option;
     for (int i=1; i<=10000; i++)
