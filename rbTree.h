@@ -19,8 +19,8 @@ public:
     : color( col ), key( k ), value( val ), blackNum( 0 ), leftChild( lch ), rightChild( rch ), father( fa ) {}
 
     RBTColor color;         // 颜色(红或黑)
-    Key key;                  // 关键字
-    Value value;                // 数据
+    Key key;                // 关键字
+    Value value;            // 数据
     int blackNum;           // 该节点的路径包含的黑色节点个数
     RBTNode *leftChild;     // 左孩子
     RBTNode *rightChild;    // 右孩子
@@ -50,10 +50,10 @@ public:
     RBTree();
     ~RBTree();
     bool isRBT();
-    void insert( Key key );
-    void insert( Key key, Value value );
-    void insertUnique( Key key );
-    void insertUnique( Key key, Value value );
+    RBTNode<Key, Value>* insert( Key key );
+    RBTNode<Key, Value>* insert( Key key, Value value );
+    RBTNode<Key, Value>* insertUnique( Key key );
+    RBTNode<Key, Value>* insertUnique( Key key, Value value );
     void erase( Key key );
     void clear();
     RBTNode<Key, Value>* find( Key key );

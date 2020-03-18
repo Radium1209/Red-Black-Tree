@@ -143,36 +143,40 @@ void RBTree<Key, Value>::rightRotate( RBTNode<Key, Value>* node )
 
 /* 插入 */
 template<class Key, class Value>
-void RBTree<Key, Value>::insert( Key key ) {
-    insert( key, key );
+RBTNode<Key, Value>* RBTree<Key, Value>::insert( Key key ) {
+    return insert( key, key );
 }
 
 /* 插入 */
 template<class Key, class Value>
-void RBTree<Key, Value>::insert( Key key, Value value ) {
+RBTNode<Key, Value>* RBTree<Key, Value>::insert( Key key, Value value ) {
     RBTNode<Key, Value> *node = NULL;
 
     if ( ( node = new RBTNode<Key, Value>( BLACK, key, value, NULL, NULL, NULL ) ) == NULL )
     {
-        return ;
+        return NULL;
     }
 
     insert( node );
+
+    return node;
 }
 
 /* 插入 */
 template<class Key, class Value>
-void RBTree<Key, Value>::insertUnique( Key key ) {
-    insertUnique( key, key );
+RBTNode<Key, Value>* RBTree<Key, Value>::insertUnique( Key key ) {
+    return insertUnique( key, key );
 }
 
 /* 插入 */
 template<class Key, class Value>
-void RBTree<Key, Value>::insertUnique( Key key, Value value ) {
-    if ( find( key ) == NULL )
+RBTNode<Key, Value>* RBTree<Key, Value>::insertUnique( Key key, Value value ) {
+    RBTNode<Key, Value>* node = find( key );
+    if ( node == NULL )
     {
-        insert( key, value );
+        return insert( key, value );
     }
+    return node;
 }
 
 /* 插入具体实现
