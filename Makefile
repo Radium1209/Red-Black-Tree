@@ -1,8 +1,8 @@
-all:
-	g++ rbTree.cpp -o rbTree
+test : test.cpp
+	g++ -o test test.cpp
 
 run:
-	./rbTree
+	./test
 
 clean:
-	rm rbTree
+	rm test

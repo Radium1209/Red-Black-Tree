@@ -11,74 +11,73 @@ enum RBTColor
 };
 
 /* 红黑树节点 */
-template<class T>
+template<class Key, class Value>
 class RBTNode
 {
 public:
-    RBTNode( RBTColor col, T val, RBTNode* lch, RBTNode* rch, RBTNode* fa )
-    : color( col ), value( val ), blackNum( 0 ), leftChild( lch ), rightChild( rch ), father( fa ) {}
+    RBTNode( RBTColor col, Key k, Value val, RBTNode* lch, RBTNode* rch, RBTNode* fa )
+    : color( col ), key( k ), value( val ), blackNum( 0 ), leftChild( lch ), rightChild( rch ), father( fa ) {}
 
     RBTColor color;         // 颜色(红或黑)
-    T value;                // 数据
+    Key key;                  // 关键字
+    Value value;                // 数据
     int blackNum;           // 该节点的路径包含的黑色节点个数
     RBTNode *leftChild;     // 左孩子
     RBTNode *rightChild;    // 右孩子
     RBTNode *father;        // 父节点
-
-public:
-    RBTNode* getFather() { return father; };
-    RBTNode* getLeft() { return leftChild; };
-    RBTNode* getRight() { return rightChild; };
-    T getValue() { return value; };
-    RBTColor getColor() { return color; };
-    void setFather( RBTNode* fa ) { father = fa; };
-    void setLeft( RBTNode* left ) { leftChild = left; };
-    void setRight( RBTNode* right ) { rightChild = right; };
-    void setValue( T val ) { value = val; };
 };
 
 /* 节点-层数对，用于遍历 */
-template<class T>
+template<class Key, class Value>
 class NLPair
 {
 public:
-    NLPair( RBTNode<T>* node, int layer )
+    NLPair( RBTNode<Key, Value>* node, int layer )
     : node( node ), layer( layer ) {}
 
-    RBTNode<T>* node;
-    int layer;
+    RBTNode<Key, Value>* node;
+    unsigned int layer;
 };
 
-template<class T>
+template<class Key, class Value>
 class RBTree
 {
     
 private:
-    RBTNode<T> *root;
+    RBTNode<Key, Value> *root;
 
 public:
     RBTree();
     ~RBTree();
     bool isRBT();
-    void insert( T value );
-    void erase( T &key );
+    void insert( Key key );
+    void insert( Key key, Value value );
+    void insertUnique( Key key );
+    void insertUnique( Key key, Value value );
+    void erase( Key key );
     void clear();
-    RBTNode<T>* find( T &key );
+    RBTNode<Key, Value>* find( Key key );
     void draw();
+    RBTNode<Key, Value>* begin();
+    RBTNode<Key, Value>* end();
+    unsigned int size();
+    bool empty();
 
 private:
-    bool isBST( RBTNode<T> *node );
-    bool hasTwoRed( RBTNode<T> *node );
-    bool hasSameBlack( RBTNode<T> *node );
-    void calBlackNum( RBTNode<T> *node, int blackNum );
-    void leftRotate( RBTNode<T> *root );
-    void rightRotate( RBTNode<T> *root );
-    void insert( RBTNode<T> *node );
-    void insertFix( RBTNode<T> *node );
-    void erase( RBTNode<T> *node );
-    void eraseFix( RBTNode<T> *node );
-    void eraseNode( RBTNode<T> *node );
-    void clear( RBTNode<T> *node );
-    RBTNode<T>* find( RBTNode<T> *node, T &key );
+    bool isBST( RBTNode<Key, Value> *node );
+    bool hasTwoRed( RBTNode<Key, Value> *node );
+    bool hasSameBlack( RBTNode<Key, Value> *node );
+    void calBlackNum( RBTNode<Key, Value> *node, int blackNum );
+    void leftRotate( RBTNode<Key, Value> *root );
+    void rightRotate( RBTNode<Key, Value> *root );
+    void insert( RBTNode<Key, Value> *node );
+    void insertFix( RBTNode<Key, Value> *node );
+    void erase( RBTNode<Key, Value> *node );
+    void eraseFix( RBTNode<Key, Value> *node );
+    void eraseNode( RBTNode<Key, Value> *node );
+    void clear( RBTNode<Key, Value> *node );
+    RBTNode<Key, Value>* find( RBTNode<Key, Value> *node, Key key );
+    unsigned int size( RBTNode<Key, Value> *node );
 };
+#include "rbTree.cpp"
 #endif
