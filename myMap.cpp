@@ -58,6 +58,11 @@ bool myMap<Key, Value>::empty()
     return rbt->empty();
 }
 
+template<class Key, class Value>
+Value& myMap<Key, Value>::operator[] ( Key key )
+{
+    return rbt->insertUnique( key )->value;
+}
 /*
 #include <string>
 #include <iostream>

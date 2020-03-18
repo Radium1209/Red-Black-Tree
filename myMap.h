@@ -20,6 +20,7 @@ public:
     unsigned int size();
     RBTNode<Key, Value>* find( Key key );
     bool empty();
+    Value& operator[] ( Key key );
 };
 #include "myMap.cpp"
 #endif
